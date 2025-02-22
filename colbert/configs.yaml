@@ -1,0 +1,19 @@
+MODEL_NAME: bert-base-cased
+Nq: 32
+
+PATH_TOKENIZER: colbert/processed/tokenizer
+
+RAW_DATA:
+  query: data/raw/hotpotqa/queries.jsonl
+  corpus: data/raw/hotpotqa/corpus.jsonl
+  train: data/raw/hotpotqa/qrels/train.tsv
+  val: data/raw/hotpotqa/qrels/dev.tsv
+  test: data/raw/hotpotqa/qrels/test.tsv
+
+PROCESSED:
+  query: colbert/processed/query_tokenized.parquet
+  corpus: colbert/processed/corpus_tokenized_[i].parquet
+
+TOKEN:
+  query: "[Q]"
+  document: "[D]"
