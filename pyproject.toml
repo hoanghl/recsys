@@ -14,8 +14,11 @@ dependencies = [
     "pandas>=2.2.3",
     "pickleshare>=0.7.5",
     "polars>=1.21.0",
+    "pyyaml>=6.0.2",
     "rich>=13.9.4",
     "scikit-learn>=1.6.1",
+    "seaborn>=0.13.2",
     "tensorboard>=2.18.0",
     "torch-tb-profiler>=0.4.3",
+    "transformers>=4.49.0",
 ]
