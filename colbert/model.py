@@ -24,15 +24,13 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer, BertModel
 
-IS_DEBUG = False
+
 path = "colbert/configs.yaml"
-
-logger.remove()
-logger.add(sys.stderr, level="DEBUG" if IS_DEBUG else "INFO")
-
-
 with open(path) as file:
     conf = yaml.safe_load(file)
+
+logger.remove()
+logger.add(sys.stderr, level="DEBUG" if conf["IS_DEBUG"] else "INFO")
 
 version = datetime.now().strftime("%m-%d_%H-%M-%S")
 project_name = "ColBERT"
@@ -91,7 +89,9 @@ class Data(Dataset):
             .to_numpy()
             .copy()
         )  # fmt: skip
-        punct = torch.tensor([tok in self.punctuations for tok in tok_ids_doc])
+        mask = torch.tensor(
+            [tok in self.punctuations or tok == self.tok_id_pad for tok in tok_ids_doc]
+        )
 
         attention_mask_query = (tok_ids_query != self.tok_id_mask).astype(np.int32)
         attention_mask_doc = (tok_ids_doc != self.tok_id_pad).astype(np.int32)
@@ -101,7 +101,7 @@ class Data(Dataset):
             "attention_mask_query": attention_mask_query,
             "attention_mask_doc": attention_mask_doc,
             "doc": tok_ids_doc,
-            "punct": punct,
+            "mask": mask,
         }
 
     @classmethod
@@ -140,18 +140,19 @@ class ColBERT(Module):
         self.bert = BertModel.from_pretrained(bert_model)
         self.bert.resize_token_embeddings(size_vocab)
 
-        self.linear = nn.Linear(d_hid_bert, d_hid)
+        self.linear = nn.Linear(d_hid_bert, d_hid, bias=False)
 
     def forward(self, X: Tensor, attention_mask: Tensor) -> Tensor:
         # X: [bz, n]
 
-        X = self.bert(X, attention_mask=attention_mask).last_hidden_state
+        X = self.bert(X, attention_mask).last_hidden_state
         # [bz, n, d_hid_bert]
 
         X = self.linear(X)
         # [bz, n, d_hid]
 
-        X = X / X.norm(dim=-1, keepdim=True)
+        # X = X / X.norm(dim=-1, keepdim=True)
+        X = torch.nn.functional.normalize(X, p=2, dim=-1)
 
         return X
 
@@ -159,44 +160,44 @@ class ColBERT(Module):
         self,
         query: Tensor,
         doc: Tensor,
-        punct: Tensor,
+        mask: Tensor,
         attention_mask_query: Tensor,
         attention_mask_doc: Tensor,
     ) -> Tensor:
         # query: [bz, Nd]
-        # doc, punct: [bz, L]
+        # doc, mask: [bz, L]
 
         bz, Nd = query.shape
 
+        ###################################################
         # Encode query and document
+        ###################################################
         query = self.forward(query, attention_mask_query)
         # [bz, Nd, d_hid]
         doc = self.forward(doc, attention_mask_doc)
         # [bz, L, d_hid]
 
+        ###################################################
+        # Calculate the similarity
+        ###################################################
         # Apply in-batch negative sampling
         query = einops.repeat(query, "b n d -> b repeat n d", repeat=bz)
-        doc = einops.repeat(doc, "b l d -> repeat b l d", repeat=bz)
 
+        doc = einops.repeat(doc, "b l d -> repeat b l d", repeat=bz)
         doc = einops.rearrange(doc, "b a l d -> b a d l")
 
         sim = einops.einsum(query, doc, "b a n d, b a d l -> b a n l")
         # [bz, bz, Nd, L]
 
-        logger.debug(f"sim: {sim.shape}")
-
         # Mask positions which are the punctuation
-        punct = einops.repeat(punct, "b l -> b x y l", x=bz, y=Nd)
-        # [bz, bz, Nd, L]
-
-        logger.debug(f"punct: {punct.shape}")
-
-        sim = sim.masked_fill(punct, ColBERT.MAKS_VAL)
-        # [bz, bz, Nd, L]
+        mask = einops.repeat(mask, "b l -> repeat1 b repeat2 l", repeat1=bz, repeat2=Nd)
+        sim = sim.masked_fill(mask, ColBERT.MAKS_VAL)
 
         # Calculate score
         score = (sim.max(dim=-1).values).sum(dim=-1)
         # [bz, bz]
+
+        logger.debug(f"score = {score}")
 
         # Calculate Listwise CE
         tgt = torch.arange(bz, dtype=torch.long, device=score.device)
@@ -204,16 +205,23 @@ class ColBERT(Module):
 
         loss = nn.functional.cross_entropy(score, tgt)
 
-        return loss
+        return score, loss
 
 
 class LitModel(L.LightningModule):
-    def __init__(self, params: dict, lr: float = 1e-3, num_epochs: int = 10) -> None:
+    def __init__(
+        self,
+        params: dict,
+        lr: float = 1e-3,
+        num_epochs: int = 10,
+        use_lr_scheduler: bool = False,
+    ) -> None:
         super().__init__()
         self.save_hyperparameters()
 
         self.lr = lr
         self.num_epochs = num_epochs
+        self.use_lr_scheduler = use_lr_scheduler
 
         self.model = ColBERT(**params)
 
@@ -221,7 +229,7 @@ class LitModel(L.LightningModule):
         return self.model(meal)
 
     def training_step(self, batch, batch_idx):
-        loss = self.model.trigger_train(**batch)
+        _, loss = self.model.trigger_train(**batch)
 
         self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True)
 
@@ -230,10 +238,17 @@ class LitModel(L.LightningModule):
     def configure_optimizers(self):
         optimizer = AdamW(self.parameters(), lr=self.lr)
 
-        # scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.01, total_iters=self.num_epochs)
-        # return {"optimizer": optimizer, "lr_scheduler": scheduler}
+        out = {"optimizer": optimizer}
 
-        return optimizer
+        if self.use_lr_scheduler:
+            out["lr_scheduler"] = torch.optim.lr_scheduler.LinearLR(
+                optimizer,
+                start_factor=1.0,
+                end_factor=0.01,
+                total_iters=self.num_epochs,
+            )
+
+        return out
 
 
 def train():
@@ -250,7 +265,7 @@ def train():
     path_raw = Path(conf["PROCESSED"]["corpus"].replace("[i]", "*"))
     paths = Path(path_raw.parent).glob(path_raw.stem)
 
-    if IS_DEBUG:
+    if conf["IS_DEBUG"]:
         logger.debug("IS_DEBUG: Load part of corpus")
 
         corpus = pl.read_parquet(list(paths)[0])

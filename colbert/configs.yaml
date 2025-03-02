@@ -1,10 +1,12 @@
 MODEL_NAME: bert-base-cased
 Nq: 32
-BSZ: 32
+BSZ: 20
 D_HID: 128
 D_HID_BERT: 768
 NUM_EPOCHS: 10
-LR: 3e-4
+LR: 3e-6
+USE_LR_SCHEDULER: True
+IS_DEBUG: False
 
 LOGGER: wandb
 
