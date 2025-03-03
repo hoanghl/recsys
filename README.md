@@ -1,11 +1,6 @@
-# Recommender System
+# Recommender System & Information Retrieval
 
 # Simple 2-tower recommender system
 
 # ColBERT
-
-## Process data
-
-```bash
-python colbert/1.1_data.py -i 0
-```
+Read more [here](./colbert/README.md)

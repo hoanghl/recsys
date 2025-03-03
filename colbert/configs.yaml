@@ -6,14 +6,13 @@ D_HID_BERT: 768
 NUM_EPOCHS: 10
 LR: 3e-6
 USE_LR_SCHEDULER: True
-IS_DEBUG: False
 
-LOGGER: wandb
+LOGGER: tensorboard
 
 PATHS:
   tokenizer: data/processed/colbert/tokenizer
   punctuations: data/processed/colbert/punctuations.json
-  ckpt: ckpt/
+  ckpt_dir: ckpt/
   logs: logs/
 
 RAW_DATA:
