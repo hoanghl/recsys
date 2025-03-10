@@ -1,10 +1,9 @@
+import argparse
 import json
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-import argparse
-
 
 import einops
 import lightning as L
@@ -26,11 +25,9 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer, BertModel
 
-
 path = "colbert/configs.yaml"
 with open(path) as file:
     conf = yaml.safe_load(file)
-
 
 version = datetime.now().strftime("%m-%d_%H-%M-%S")
 project_name = "ColBERT"
@@ -184,7 +181,7 @@ class ColBERT(Module):
         mask: Tensor,
         attention_mask_query: Tensor,
         attention_mask_doc: Tensor,
-    ) -> Tensor:
+    ) -> tuple[Tensor, Tensor]:
         # query: [bz, Nd]
         # doc, mask: [bz, L]
 
@@ -382,8 +379,6 @@ def train():
         data,
         batch_size=int(conf["BSZ"]),
         shuffle=shuffle,
-        num_workers=4,
-        persistent_workers=True,
     )
 
     # Declare model

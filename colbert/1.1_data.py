@@ -35,7 +35,7 @@ def main():
     num_procs = args.num_procs
 
     # =========================================================
-    # Load data and resouce
+    # Load data and resources
     # =========================================================
     logger.info("Load data and resources")
 
