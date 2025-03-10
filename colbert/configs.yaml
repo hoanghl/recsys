@@ -1,15 +1,18 @@
 MODEL_NAME: bert-base-cased
 Nq: 32
-BSZ: 32
+BSZ: 20
 D_HID: 128
 D_HID_BERT: 768
 NUM_EPOCHS: 10
-LR: 3e-4
+LR: 3e-6
+USE_LR_SCHEDULER: True
+
+LOGGER: tensorboard
 
 PATHS:
-  tokenizer: colbert/processed/tokenizer
-  punctuations: colbert/processed/punctuations.json
-  ckpt: ckpt/
+  tokenizer: data/processed/colbert/tokenizer
+  punctuations: data/processed/colbert/punctuations.json
+  ckpt_dir: ckpt/
   logs: logs/
 
 RAW_DATA:
@@ -20,8 +23,8 @@ RAW_DATA:
   test: data/raw/hotpotqa/qrels/test.tsv
 
 PROCESSED:
-  query: colbert/processed/query_tokenized.parquet
-  corpus: colbert/processed/corpus_tokenized_[i].parquet
+  query: data/processed/colbert/query_tokenized.parquet
+  corpus: data/processed/colbert/corpus_tokenized_[i].parquet
 
 TOKEN:
   query: "[Q]"
