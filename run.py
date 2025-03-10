@@ -1,6 +1,6 @@
 import sys
 
-from colbert import model
+from src.colbert import model
 
 
 def main():
