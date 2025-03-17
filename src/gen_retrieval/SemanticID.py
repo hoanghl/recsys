@@ -7,8 +7,6 @@ from numpy import ndarray
 from sklearn.cluster import KMeans
 from tqdm.contrib.concurrent import process_map
 
-embeddings: ndarray = None
-
 
 def _add_new_centroid(
     tree_centroids: dict,
@@ -36,7 +34,7 @@ def _add_new_centroid(
         tree_centroids[idx_parent]["children"].append(idx_new_centroid)
 
 
-def _get_clusters(ids_corpus: list, num_clusters: int) -> list[dict]:
+def _get_clusters(embeddings, ids_corpus: list, num_clusters: int) -> list[dict]:
     """Use KMeans to find clusters
 
     Args:
@@ -49,11 +47,9 @@ def _get_clusters(ids_corpus: list, num_clusters: int) -> list[dict]:
 
     # TODO: HoangLe [Mar-16]: Handle case when len(ids_corpus) < num_clusters
 
-    global embeddings
-
     map_2corpus = {i: idx for i, idx in enumerate(ids_corpus)}
 
-    result = KMeans(num_clusters).fit(embeddings[ids_corpus])
+    result = KMeans(num_clusters, random_state=0).fit(embeddings[ids_corpus])
 
     clusters_labels = defaultdict(list)
     for i, label in enumerate(result.labels_):
@@ -70,22 +66,22 @@ def _get_clusters(ids_corpus: list, num_clusters: int) -> list[dict]:
 @logger.catch
 def _construct_core(
     tasks: Queue,
+    embeddings,
     tree_centroids: dict,
     identifiers,
     num_clusters: int,
     pid: int,
+    is_init: bool = False,
 ):
-    global embeddings
-
     while True:
         if tasks.empty():
             break
 
         ids_corpus, idx_parent = tasks.get(timeout=1)
 
-        logger.debug(f"pid: {pid} - idx_parent: {idx_parent}")
+        logger.debug(f"pid: {pid} - Start")
 
-        clusters = _get_clusters(ids_corpus, num_clusters)
+        clusters = _get_clusters(embeddings, ids_corpus, num_clusters)
 
         for i, cluster in enumerate(clusters):
             idx_new_centroid = _add_new_centroid(
@@ -100,6 +96,9 @@ def _construct_core(
                     identifiers[label] += [idx]
             else:
                 tasks.put((cluster["labels"], idx_new_centroid))
+
+        if is_init:
+            break
 
 
 class SemanticID:
@@ -124,8 +123,6 @@ class SemanticID:
         Returns:
             SemanticID: instance of class `SemanticID`
         """
-        global embeddings
-        embeddings = embeddings_inp
 
         n = embeddings_inp.shape[0]
 
@@ -144,9 +141,11 @@ class SemanticID:
         identifiers = manager.dict({i: [] for i in range(n)})
 
         # Trigger parallel processing
-        _construct_core(tasks, tree_centroids, identifiers, C, 0)
+        _construct_core(
+            tasks, embeddings_inp, tree_centroids, identifiers, C, 0, is_init=True
+        )
         partial_consumer = partial(
-            _construct_core, tasks, tree_centroids, identifiers, C
+            _construct_core, tasks, embeddings_inp, tree_centroids, identifiers, C
         )
         process_map(partial_consumer, range(num_procs), max_workers=num_procs)
 
