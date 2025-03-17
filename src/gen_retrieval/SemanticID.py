@@ -2,11 +2,12 @@ from collections import defaultdict
 from functools import partial
 from multiprocessing import Manager, Queue
 
-import numpy as np
 from loguru import logger
 from numpy import ndarray
 from sklearn.cluster import KMeans
 from tqdm.contrib.concurrent import process_map
+
+embeddings: ndarray = None
 
 
 def _add_new_centroid(
@@ -35,12 +36,12 @@ def _add_new_centroid(
         tree_centroids[idx_parent]["children"].append(idx_new_centroid)
 
 
-def _get_clusters(embeddings: list, ids_corpus: list, num_clusters: int) -> list[dict]:
+def _get_clusters(ids_corpus: list, num_clusters: int) -> list[dict]:
     """Use KMeans to find clusters
 
     Args:
-        embeddings (list): shared list of embeddings
         ids_corpus (list): corpus id of documents
+        num_clusters (int): no. clusters
 
     Returns:
         list[dict]: each element contains the corpus ids of document and centroid of corresponding cluster
@@ -48,11 +49,11 @@ def _get_clusters(embeddings: list, ids_corpus: list, num_clusters: int) -> list
 
     # TODO: HoangLe [Mar-16]: Handle case when len(ids_corpus) < num_clusters
 
+    global embeddings
+
     map_2corpus = {i: idx for i, idx in enumerate(ids_corpus)}
 
-    embd_tensor = np.vstack([embeddings[i] for i in ids_corpus])
-
-    result = KMeans(num_clusters).fit(embd_tensor)
+    result = KMeans(num_clusters).fit(embeddings[ids_corpus])
 
     clusters_labels = defaultdict(list)
     for i, label in enumerate(result.labels_):
@@ -69,22 +70,22 @@ def _get_clusters(embeddings: list, ids_corpus: list, num_clusters: int) -> list
 @logger.catch
 def _construct_core(
     tasks: Queue,
-    embeddings: list,
     tree_centroids: dict,
     identifiers,
     num_clusters: int,
-    *args,
+    pid: int,
 ):
+    global embeddings
+
     while True:
         if tasks.empty():
             break
 
-        ids_corpus, idx_parent = tasks.get()
+        ids_corpus, idx_parent = tasks.get(timeout=1)
 
-        logger.debug(f"ids_corpus: {ids_corpus}")
-        logger.debug(f"idx_parent: {idx_parent}")
+        logger.debug(f"pid: {pid} - idx_parent: {idx_parent}")
 
-        clusters = _get_clusters(embeddings, ids_corpus, num_clusters)
+        clusters = _get_clusters(ids_corpus, num_clusters)
 
         for i, cluster in enumerate(clusters):
             idx_new_centroid = _add_new_centroid(
@@ -107,7 +108,7 @@ class SemanticID:
 
         self.tree_centroids: dict = None
         self.identifiers: dict = None
-        self.embeddings: list = []
+        self.embeddings: ndarray = None
 
     @classmethod
     def construct(
@@ -123,10 +124,13 @@ class SemanticID:
         Returns:
             SemanticID: instance of class `SemanticID`
         """
+        global embeddings
+        embeddings = embeddings_inp
+
         n = embeddings_inp.shape[0]
 
         semantic_id = SemanticID(C)
-        semantic_id.embeddings = [embd for embd in embeddings_inp]
+        semantic_id.embeddings = embeddings_inp
 
         # Declare shared objects and initialize
         manager = Manager()
@@ -137,18 +141,14 @@ class SemanticID:
         tasks = manager.Queue()
         tasks.put_nowait((list(range(n)), idx_root))
 
-        embeddings = manager.list(semantic_id.embeddings)
-
         identifiers = manager.dict({i: [] for i in range(n)})
 
         # Trigger parallel processing
+        _construct_core(tasks, tree_centroids, identifiers, C, 0)
         partial_consumer = partial(
-            _construct_core, tasks, embeddings, tree_centroids, identifiers, C
+            _construct_core, tasks, tree_centroids, identifiers, C
         )
-        process_map(
-            partial_consumer, [_ for _ in range(num_procs)], max_workers=num_procs
-        )
-        # _construct_core(tasks, embeddings, tree_centroids, identifiers, C)
+        process_map(partial_consumer, range(num_procs), max_workers=num_procs)
 
         # Clone centroids and identifiers
         semantic_id.tree_centroids = tree_centroids.copy()
