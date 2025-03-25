@@ -1,0 +1,33 @@
+MODEL_NAME: bert-base-cased
+Nq: 32
+BSZ: 20
+D_HID: 128
+D_HID_BERT: 768
+NUM_EPOCHS: 10
+LR: 3e-6
+USE_LR_SCHEDULER: True
+
+LOGGER: tensorboard
+
+PATHS:
+  tokenizer: data/processed/colbert/tokenizer
+  punctuations: data/processed/colbert/punctuations.json
+  ckpt_dir: ckpt/
+  logs: logs/
+
+RAW_DATA:
+  query: data/raw/hotpotqa/queries.jsonl
+  corpus: data/raw/hotpotqa/corpus.jsonl
+  train: data/raw/hotpotqa/qrels/train.tsv
+  val: data/raw/hotpotqa/qrels/dev.tsv
+  test: data/raw/hotpotqa/qrels/test.tsv
+
+INTERIM:
+  docid:
+    tokens: data/interim/gen_retrieval/docid/corpus_tokens.npz
+    embds: data/interim/gen_retrieval/docid/corpus_embds.pt
+
+PROCESSED:
+  query: data/processed/gen_retrieval/query_tokenized.parquet
+
+MODEL_DOCID: bert-base-cased
