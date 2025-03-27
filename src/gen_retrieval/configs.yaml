@@ -25,7 +25,7 @@ RAW_DATA:
 INTERIM:
   docid:
     tokens: data/interim/gen_retrieval/docid/corpus_tokens_[proc_id].npz
-    embds: data/interim/gen_retrieval/docid/corpus_embds_[proc_id].pt
+    embds: data/interim/gen_retrieval/docid/corpus_embds.pt
 
 PROCESSED:
   query: data/processed/gen_retrieval/query_tokenized.parquet
