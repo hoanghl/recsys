@@ -91,12 +91,14 @@ def main():
 
     # Load model
     model = BertModel.from_pretrained(conf["MODEL_DOCID"]).to(device=args.device)
+    model.eval()
 
     # Load corpus tokens
     input_ids_list, attention_mask_list = [], []
-    for path in Path(conf["INTERIM"]["docid"]["tokens"]).parent.glob(
-        "corpus_tokens*.npz"
-    ):
+    paths = sorted(
+        list(Path(conf["INTERIM"]["docid"]["tokens"]).parent.glob("corpus_tokens*.npz"))
+    )
+    for path in paths:
         logger.info(f"Load: {path.name}")
 
         loaded = np.load(path, allow_pickle=True)["arr_0"].item()
@@ -124,16 +126,18 @@ def main():
     total = math.ceil(len(dataset) / args.bsz)
 
     embds_list = []
-    with tqdm(total=total) as pbar:
+    with tqdm(total=total) as pbar, torch.no_grad():
         for batch in loader:
-            out = model(**batch).last_hidden_state.mean(dim=1).cpu().detach()
+            out = model(**batch).last_hidden_state.mean(dim=1).cpu()
             embds_list.append(out)
 
             pbar.update(1)
 
-    embds = torch.stack(embds_list)
+    embds = torch.vstack(embds_list)
 
     # Save embeddings
+    logger.info(f"Save to {conf['INTERIM']['docid']['embds']}")
+
     path = Path(conf["INTERIM"]["docid"]["embds"])
     path.parent.mkdir(exist_ok=True, parents=True)
 
