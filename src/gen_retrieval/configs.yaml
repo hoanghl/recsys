@@ -29,5 +29,6 @@ INTERIM:
 
 PROCESSED:
   query: data/processed/gen_retrieval/query_tokenized.parquet
+  semantic_docid: data/processed/gen_retrieval/semantic_ids.pkl
 
 MODEL_DOCID: bert-base-cased
