@@ -1,23 +1,22 @@
 from collections import defaultdict
 from functools import partial
-from multiprocessing import Manager, Queue
 
 from loguru import logger
-from numpy import ndarray
 from sklearn.cluster import KMeans
-from tqdm.contrib.concurrent import process_map
+from torch import Tensor
+from torch.multiprocessing import Manager, Pool, Queue
 
 
 def _add_new_centroid(
     tree_centroids: dict,
-    embd: ndarray | None,
+    embd: Tensor | None,
     idx_parent: int | None = None,
 ) -> int:
     """Add new centroid to `tree_centroids`
 
     Args:
         tree_centroids (dict): shared dict storing the centroids
-        embd (ndarray|None): embedding of centroid, resulted from KMeans
+        embd (Tensor|None): embedding of centroid, resulted from KMeans
         idx_parent (int | None): index of parent node in `tree_centroids`
 
     Returns:
@@ -107,16 +106,16 @@ class SemanticID:
 
         self.tree_centroids: dict = None
         self.identifiers: dict = None
-        self.embeddings: ndarray = None
+        self.embeddings: Tensor = None
 
     @classmethod
     def construct(
-        cls, embeddings_inp: ndarray, C: int, num_procs: int = 5
+        cls, embeddings_inp: Tensor, C: int, num_procs: int = 5
     ) -> "SemanticID":
         """Construct the semantically hierarchical ID
 
         Args:
-            embeddings_inp (ndarray): input embedding, has shape [N, d] where N is no. documents
+            embeddings_inp (Tensor): input embedding, has shape [N, d] where N is no. documents
             C (int): no. documents in each cluster
             num_procs (int, optional): no. processes in parallel. Defaults to 5.
 
@@ -128,6 +127,7 @@ class SemanticID:
 
         semantic_id = SemanticID(C)
         semantic_id.embeddings = embeddings_inp
+        semantic_id.embeddings.share_memory_()
 
         # Declare shared objects and initialize
         manager = Manager()
@@ -147,7 +147,8 @@ class SemanticID:
         partial_consumer = partial(
             _construct_core, tasks, embeddings_inp, tree_centroids, identifiers, C
         )
-        process_map(partial_consumer, range(num_procs), max_workers=num_procs)
+        with Pool(num_procs) as p:
+            p.map(partial_consumer, range(num_procs))
 
         # Clone centroids and identifiers
         semantic_id.tree_centroids = tree_centroids.copy()

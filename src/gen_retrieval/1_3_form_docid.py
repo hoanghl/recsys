@@ -61,6 +61,8 @@ def main():
     path = Path(conf["INTERIM"]["docid"]["embds"])
     embeddings = torch.load(path)
 
+    logger.info(f"embeddings: {embeddings.shape}")
+
     # =================================================
     # Form docID
     # =================================================
