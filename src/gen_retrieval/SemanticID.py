@@ -44,20 +44,22 @@ def _get_clusters(embeddings, ids_corpus: list, num_clusters: int) -> list[dict]
         list[dict]: each element contains the corpus ids of document and centroid of corresponding cluster
     """
 
-    # TODO: HoangLe [Mar-16]: Handle case when len(ids_corpus) < num_clusters
+    if len(ids_corpus) <= num_clusters:
+        out = [{"labels": [idx], "centroid": embeddings[idx]} for idx in ids_corpus]
 
-    map_2corpus = {i: idx for i, idx in enumerate(ids_corpus)}
+    else:
+        map_2corpus = {i: idx for i, idx in enumerate(ids_corpus)}
 
-    result = KMeans(num_clusters, random_state=0).fit(embeddings[ids_corpus])
+        result = KMeans(num_clusters, random_state=0).fit(embeddings[ids_corpus])
 
-    clusters_labels = defaultdict(list)
-    for i, label in enumerate(result.labels_):
-        clusters_labels[label.item()].append(map_2corpus[i])
+        clusters_labels = defaultdict(list)
+        for i, label in enumerate(result.labels_):
+            clusters_labels[label.item()].append(map_2corpus[i])
 
-    out = [
-        {"labels": clusters_labels[idx], "centroid": centroid}
-        for idx, centroid in enumerate(result.cluster_centers_)
-    ]
+        out = [
+            {"labels": clusters_labels[idx], "centroid": centroid}
+            for idx, centroid in enumerate(result.cluster_centers_)
+        ]
 
     return out
 
@@ -151,7 +153,7 @@ class SemanticID:
             p.map(partial_consumer, range(num_procs))
 
         # Clone centroids and identifiers
-        semantic_id.tree_centroids = tree_centroids.copy()
-        semantic_id.identifiers = identifiers.copy()
+        semantic_id.tree_centroids = tree_centroids
+        semantic_id.identifiers = identifiers
 
         return semantic_id
