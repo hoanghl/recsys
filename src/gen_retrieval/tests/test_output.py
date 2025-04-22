@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from sklearn.cluster import KMeans
 
 from src import SemanticID
@@ -30,6 +31,6 @@ def test1():
 
     identifier.append(0)
 
-    semantic_id = SemanticID.construct(corpus_raw, C, num_procs)
+    semantic_id = SemanticID.construct(torch.from_numpy(corpus_raw), C, num_procs)
 
     assert semantic_id.identifiers[0] == identifier
