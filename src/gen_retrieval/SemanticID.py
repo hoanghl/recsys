@@ -1,4 +1,3 @@
-import warnings
 from collections import defaultdict
 from functools import partial
 
@@ -58,19 +57,20 @@ def _get_clusters(embeddings, ids_corpus: list, num_clusters: int) -> list[dict]
             {"random_state": 42, "max_iter": 500},
         ]
 
-        n_tries = 0
-        with warnings.catch_warnings():
-            warnings.filterwarnings("error")
+        for n_tries, pair in enumerate(pairs_try):
+            result = KMeans(num_clusters, random_state=pair["random_state"], max_iter=pair["max_iter"]).fit(
+                embeddings[ids_corpus]
+            )
+            n_centroids = len(set(result.labels_))
 
-            for pair in pairs_try:
-                try:
-                    result = KMeans(num_clusters, random_state=pair["random_state"]).fit(embeddings[ids_corpus])
-                    break
-                except Warning:
-                    n_tries += 1
+            if n_centroids == num_clusters:
+                break
 
-        if n_tries == 3 and result.cluster_centers_.shape[0] == 1:
+            logger.info(f"{n_tries}: n_centroids ({n_centroids}) < num_clusters ({num_clusters}): {ids_corpus}")
+
+        if n_tries == 2 and n_centroids == 1:
             # If after trying 3 times and no. clusters is 1, then assign each document into a separated cluster
+            logger.info(f"After 3 tries and n_centroids = {n_centroids}: {ids_corpus}")
             out = [{"labels": [idx], "centroid": embeddings[idx]} for idx in ids_corpus]
         else:
             clusters_labels = defaultdict(list)

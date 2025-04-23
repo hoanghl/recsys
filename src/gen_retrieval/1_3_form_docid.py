@@ -1,8 +1,8 @@
 import argparse
-import pickle
 import sys
 from pathlib import Path
 
+import numpy as np
 import torch
 import yaml
 from loguru import logger
@@ -18,26 +18,9 @@ def _setup_logger(level: str = "INFO"):
 def _parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "--path-config",
-        type=str,
-        default="src/gen_retrieval/configs.yaml",
-        dest="path_conf",
-    )
-    parser.add_argument(
-        "--num-procs",
-        "-n",
-        type=int,
-        default=4,
-        dest="num_procs",
-    )
-    parser.add_argument(
-        "--num-clusters",
-        "-c",
-        type=int,
-        default=10,
-        dest="num_clusters",
-    )
+    parser.add_argument("--path-config", type=str, default="src/gen_retrieval/configs.yaml", dest="path_conf")
+    parser.add_argument("--num-procs", "-n", type=int, default=4, dest="num_procs")
+    parser.add_argument("--num-clusters", "-c", type=int, default=10, dest="num_clusters")
 
     args = parser.parse_args()
 
@@ -66,18 +49,14 @@ def main():
     # =================================================
     # Form docID
     # =================================================
-    semantic_ids = SemanticID.construct(
-        embeddings, args.num_clusters, args.num_procs
-    ).identifiers
+    semantic_ids = SemanticID.construct(embeddings, args.num_clusters, args.num_procs).identifiers
 
     # Save embeddings
-    logger.info(f"Save to {conf['INTERIM']['docid']['embds']}")
-
     path = Path(conf["PROCESSED"]["semantic_docid"])
-    path.parent.mkdir(exist_ok=True, parents=True)
+    logger.info(f"Save to {path.as_posix()}")
 
-    with open(path, "wb+") as file:
-        pickle.dump(semantic_ids, file, protocol=pickle.HIGHEST_PROTOCOL)
+    path.parent.mkdir(exist_ok=True, parents=True)
+    np.savez(path, semantic_ids)
 
     logger.debug(semantic_ids)
 
