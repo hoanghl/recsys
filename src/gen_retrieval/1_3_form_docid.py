@@ -1,8 +1,8 @@
 import argparse
-import pickle
 import sys
 from pathlib import Path
 
+import numpy as np
 import torch
 import yaml
 from loguru import logger
@@ -55,10 +55,10 @@ def main():
     logger.info(f"Save to {conf['PROCESSED']['semantic_docid']}")
 
     path = Path(conf["PROCESSED"]["semantic_docid"])
-    path.parent.mkdir(exist_ok=True, parents=True)
+    logger.info(f"Save to {path.as_posix()}")
 
-    with open(path, "wb+") as file:
-        pickle.dump(semantic_ids, file, protocol=pickle.HIGHEST_PROTOCOL)
+    path.parent.mkdir(exist_ok=True, parents=True)
+    np.savez(path, semantic_ids)
 
     logger.debug(semantic_ids)
 
