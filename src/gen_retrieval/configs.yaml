@@ -1,17 +1,13 @@
-MODEL_NAME: bert-base-cased
-Nq: 32
-BSZ: 20
-D_HID: 128
-D_HID_BERT: 768
+PROJECT_NAME: DSI
+
 NUM_EPOCHS: 10
+BSZ: 20
 LR: 3e-6
 USE_LR_SCHEDULER: True
 
 LOGGER: tensorboard
 
 PATHS:
-  tokenizer: data/processed/colbert/tokenizer
-  punctuations: data/processed/colbert/punctuations.json
   ckpt_dir: ckpt/
   logs: logs/
 
@@ -29,6 +25,7 @@ INTERIM:
 
 PROCESSED:
   query: data/processed/gen_retrieval/query_tokenized.parquet
-  semantic_docid: data/processed/gen_retrieval/semantic_ids.npz
+  semantic_docid: data/processed/gen_retrieval/semantic_ids.pkl
 
 MODEL_DOCID: bert-base-cased
+MODEL_GENERATIVE: res/t5-small
