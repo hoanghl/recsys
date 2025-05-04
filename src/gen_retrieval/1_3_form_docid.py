@@ -18,26 +18,9 @@ def _setup_logger(level: str = "INFO"):
 def _parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "--path-config",
-        type=str,
-        default="src/gen_retrieval/configs.yaml",
-        dest="path_conf",
-    )
-    parser.add_argument(
-        "--num-procs",
-        "-n",
-        type=int,
-        default=4,
-        dest="num_procs",
-    )
-    parser.add_argument(
-        "--num-clusters",
-        "-c",
-        type=int,
-        default=10,
-        dest="num_clusters",
-    )
+    parser.add_argument("--path-config", type=str, default="src/gen_retrieval/configs.yaml", dest="path_conf")
+    parser.add_argument("--num-procs", "-n", type=int, default=4, dest="num_procs")
+    parser.add_argument("--num-clusters", "-c", type=int, default=10, dest="num_clusters")
 
     args = parser.parse_args()
 
@@ -48,7 +31,7 @@ def main():
     # =================================================
     # Load things
     # =================================================
-    _setup_logger()
+    _setup_logger("DEBUG")
 
     # Load args
     args = _parse_args()
@@ -66,12 +49,10 @@ def main():
     # =================================================
     # Form docID
     # =================================================
-    semantic_ids = SemanticID.construct(
-        embeddings, args.num_clusters, args.num_procs
-    ).identifiers
+    semantic_ids = SemanticID.construct(embeddings, args.num_clusters, args.num_procs).identifiers
 
     # Save embeddings
-    logger.info(f"Save to {conf['INTERIM']['docid']['embds']}")
+    logger.info(f"Save to {conf['PROCESSED']['semantic_docid']}")
 
     path = Path(conf["PROCESSED"]["semantic_docid"])
     path.parent.mkdir(exist_ok=True, parents=True)
