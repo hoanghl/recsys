@@ -7,7 +7,7 @@ import polars as pl
 import yaml
 from lightning import Trainer
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from lightning.pytorch.loggers import WandbLogger, TensorBoardLogger
+from lightning.pytorch.loggers import TensorBoardLogger
 from loguru import logger
 from torch.utils.data import DataLoader
 
@@ -98,7 +98,8 @@ def main():
         devices=1,
         log_every_n_steps=1,
         # num_sanity_val_steps=2,
-        max_epochs=conf["NUM_EPOCHS"],
+        # max_epochs=conf["MAX_EPOCHS"],
+        max_steps=conf["MAX_STEPS"],
         callbacks=[
             # RichProgressBar(leave=True),
             LearningRateMonitor(logging_interval="step"),
