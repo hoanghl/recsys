@@ -1,5 +1,4 @@
 import argparse
-import pickle
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -8,7 +7,7 @@ import polars as pl
 import yaml
 from lightning import Trainer
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import WandbLogger, TensorBoardLogger
 from loguru import logger
 from torch.utils.data import DataLoader
 
@@ -47,19 +46,44 @@ def main():
     # =================================================
     # Define dataset
     # =================================================
-    train = pl.read_csv(conf["RAW_DATA"]["train"], separator="\t")
-    # val = pl.read_csv(conf["RAW_DATA"]["val"], separator="\t")
-    queries = pl.read_ndjson(conf["RAW_DATA"]["query"])
+    cols = ["tok_ids", "attn_mask"]
+    queries = (
+        pl
+        .read_parquet(conf['PROCESSED']['query'])
+        .with_columns(
+            *[
+                pl.col(col).str.split(by='-').list.eval(pl.element().str.to_integer())
+                for col in cols
+            ]
+        )
+        .select('_id', 'tok_ids', 'attn_mask')
+    )  # fmt: skip
 
-    with open(conf["PROCESSED"]["semantic_docid"], "rb") as file:
-        semantics_id = pickle.load(file)
+    cols = ["tok_ids_text", "attn_mask_text", "tok_ids_semantic_id", "attn_mask_semantic_id"]
+    corpus = (
+        pl.read_parquet(conf['PROCESSED']['corpus'])
+        .with_columns(
+            *[
+                pl.col(col).str.split(by='-').list.eval(pl.element().str.to_integer())
+                for col in cols
+            ]
+        )
+        .drop('text')
+    )  # fmt: skip
 
-    corpus = pl.read_ndjson(conf["RAW_DATA"]["corpus"]).with_columns(
-        pl.col("_id").cast(pl.UInt32), pl.Series(semantics_id.values()).alias("semantic_id")
-    )
+    train = (
+        pl.read_csv(conf['RAW_DATA']['train'], separator='\t')
+        .join(queries, left_on='query-id', right_on='_id', how='left')
+        .join(corpus, left_on='corpus-id', right_on='_id', how='left')
+        .drop('score')
+    )  # fmt: skip
+    # val = (
+    #     pl.read_csv(conf['RAW_DATA']['val'], separator='\t')
+    #     .join(queries, left_on='query-id', right_on='_id', how='left')
+    #     .join(corpus, left_on='corpus-id', right_on='_id', how='left')
+    # ) # fmt: skip
 
-    loader_train = DataLoader(DSIDataset(conf, corpus, queries, train), batch_size=conf["BSZ"])
-    # loader_val = DataLoader(DSIDataset(corpus, queries, val, is_val=True), batch_size=conf["BSZ"])
+    loader_train = DataLoader(DSIDataset(conf, corpus, queries, train), batch_size=conf["BSZ"], shuffle=True)
 
     # =================================================
     # Define model
@@ -73,13 +97,16 @@ def main():
         # accelerator="cpu",
         devices=1,
         log_every_n_steps=1,
-        num_sanity_val_steps=2,
+        # num_sanity_val_steps=2,
         max_epochs=conf["NUM_EPOCHS"],
         callbacks=[
             # RichProgressBar(leave=True),
             LearningRateMonitor(logging_interval="step"),
             ModelCheckpoint(
-                dirpath=path_ckpt / conf["PROJECT_NAME"], filename=f"{path_ckpt.stem}_{{epoch}}", every_n_epochs=1
+                dirpath=path_ckpt / conf["PROJECT_NAME"],
+                filename=f"{path_ckpt.stem}_{{epoch}}",
+                every_n_epochs=1,
+                save_on_train_epoch_end=True,
             ),
         ],
         logger=[
@@ -90,13 +117,12 @@ def main():
                 default_hp_metric=False,
             ),
             # WandbLogger(
-            #         name=conf['PROJECT_NAME'],
-            #         save_dir=conf["PATHS"]["logs"],
-            #         version=version,
-            #         project=conf['PROJECT_NAME'],
-            #     )
+            #     name=version,
+            #     save_dir=conf["PATHS"]["logs"],
+            #     project=conf["PROJECT_NAME"],
+            # )
         ],
-        check_val_every_n_epoch=4,
+        # check_val_every_n_epoch=4,
     )
 
     # =================================================

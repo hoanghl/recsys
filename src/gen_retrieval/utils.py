@@ -1,173 +1,15 @@
-import random
-from typing import Iterator, Literal
-
-import polars as pl
 import torch
 from lightning import LightningModule
 from loguru import logger
 from polars import DataFrame
 from torch.optim import AdamW
 from torch.utils.data import Dataset
-from transformers import T5ForConditionalGeneration, T5Tokenizer
+from transformers import T5ForConditionalGeneration
+
 
 # =================================================
 # Data-associated components
 # =================================================
-NEW_TOKENS_DICT = {"task_indexing_tok": "<IDX>", "task_retrieval_tok": "<RTRV>", "sep_tok": "<sep>"}
-
-
-def _get_next_sentinel(tokenizer) -> Iterator[int]:
-    for i in range(100):
-        yield tokenizer.convert_tokens_to_ids(f"<extra_id_{i}>")
-
-
-def _is_masked(mask_ratio: float = 0.15) -> bool:
-    return random.random() <= mask_ratio
-
-
-def _mask_seq(
-    seq: list[int],
-    tokenizer,
-    mask_ratio: float = 0.15,
-    span_length: int = 3,
-) -> tuple[list, list]:
-    seq_inp, seq_tgt = [], []
-    gen_inp = _get_next_sentinel(tokenizer)
-    gen_tgt = _get_next_sentinel(tokenizer)
-
-    idx = 0
-    is_sentinel_added = False
-    while idx < len(seq):
-        if _is_masked(mask_ratio):
-            seq_inp.append(next(gen_inp))
-            for _ in range(min(span_length, len(seq) - idx)):
-                seq_tgt.append(seq[idx])
-                idx += 1
-
-            is_sentinel_added = False
-        else:
-            seq_inp.append(seq[idx])
-            if not is_sentinel_added:
-                is_sentinel_added = True
-                seq_tgt.append(next(gen_tgt))
-
-            idx += 1
-
-    return seq_inp, seq_tgt
-
-
-def _pad(
-    seq: list[int],
-    tokenizer,
-    max_seq_length: int = 512,
-) -> tuple[list, list]:
-    len_pad = max_seq_length - len(seq)
-    attn_mask = [1] * len(seq) + [0] * len_pad
-    seq = seq + [tokenizer.pad_token_id] * len_pad
-
-    return seq, attn_mask
-
-
-def _build_sample(
-    tokenizer,
-    task: Literal["indexing", "retrieval"],
-    special_toks: dict,
-    inp: str,
-    tgt: str | list[int],
-    mask_ratio: float = 0.15,
-    span_length: int = 3,
-    max_seq_length: int = 512,
-) -> tuple:
-    """Build sample for both task: indexing and retrieval.
-    If task is 'indexing', 'inp' and 'tgt' sequence are concatenated and masked.
-
-    Args:
-        tokenizer (_type_): tokenizer
-        task (Literal[&#39;indexing&#39;, &#39;retrieval&#39;]): task to build sample
-        special_toks (dict): special tokens
-        inp (str): Input sequence
-        tgt (str | list[int]): Target sequence
-        mask_ratio (float, optional): Mask ratio. Only matters if task is 'indexing'. Defaults to .15.
-        span_length (int, optional): Span length of masked phrase. Only matters if task is 'indexing'. Defaults to 3.
-        max_seq_length (int, optional): Max sequence length. Defaults to 512.
-
-    Raises:
-        NotImplementedError: Raised when param 'task' is incorrect
-
-    Returns:
-        tuple: 4 sequences 'seq_encode', 'attn_mask_encode', 'seq_decode' and 'attn_mask_decode'
-    """
-
-    # logger.debug(f"Task: {task}")
-    # logger.debug(f"inp : {inp}")
-    # logger.debug(f"tgt : {tgt}")
-
-    match task:
-        case "indexing":
-            # Token
-            seq_inp: list[int] = tokenizer(inp, add_special_tokens=False)["input_ids"]
-            if isinstance(tgt, list):
-                seq_tgt = tokenizer.convert_tokens_to_ids(list(map(str, tgt)))
-            else:
-                seq_tgt: list[int] = tokenizer(tgt, add_special_tokens=False)["input_ids"]
-
-            # Truncate
-            max_len_inp = (
-                max_seq_length - len(seq_tgt) - 1 - 1
-            )  # one for task-specified token and another for separating token
-            seq_inp = seq_inp[:max_len_inp]
-
-            # Concat and add special tokens
-            tok_id_sep = tokenizer.convert_tokens_to_ids(special_toks["sep_tok"])
-            seq = seq_inp + [tok_id_sep] + seq_tgt
-
-            # Mask
-            seq_mask_inp, seq_mask_tgt = _mask_seq(seq, tokenizer, mask_ratio, span_length)
-
-            # Add other special tokens
-            tok_id_indexing = tokenizer.convert_tokens_to_ids(special_toks["task_indexing_tok"])
-            seq_mask_inp = [tok_id_indexing] + seq_mask_inp
-            seq_mask_tgt = seq_mask_tgt + [tokenizer.eos_token_id]
-
-            # Pad and create mask
-
-            # logger.debug(f"seq_mask_inp = {seq_mask_inp}")
-            # logger.debug(f"seq_mask_tgt = {seq_mask_tgt}")
-
-            seq_encode, attn_mask_encode = _pad(seq_mask_inp, tokenizer, max_seq_length)
-            seq_decode, attn_mask_decode = _pad(seq_mask_tgt, tokenizer, max_seq_length)
-        case "retrieval":
-            # Token
-            seq_inp: list[int] = tokenizer(inp, add_special_tokens=False)["input_ids"]
-            if isinstance(tgt, list):
-                seq_tgt = tokenizer.convert_tokens_to_ids(list(map(str, tgt)))
-            else:
-                seq_tgt: list[int] = tokenizer(tgt, add_special_tokens=False)["input_ids"]
-
-            # Truncate
-            max_len_inp = (
-                max_seq_length - len(seq_tgt) - 1 - 1
-            )  # one for task-specified token and another for separating token
-            seq_inp = seq_inp[:max_len_inp]
-
-            # Add special tokens
-            tok_id_retrieval = tokenizer.convert_tokens_to_ids(special_toks["task_retrieval_tok"])
-            seq_inp = [tok_id_retrieval] + seq_inp
-            seq_tgt = seq_tgt + [tokenizer.eos_token_id]
-
-            # Pad and create mask
-            seq_encode, attn_mask_encode = _pad(seq_inp, tokenizer, max_seq_length)
-            seq_decode, attn_mask_decode = _pad(seq_tgt, tokenizer, max_seq_length)
-        case _:
-            raise NotImplementedError()
-
-    return seq_encode, attn_mask_encode, seq_decode, attn_mask_decode
-
-
-def _is_index_task(ratio: float = 1.0 / 32) -> bool:
-    return random.random() <= ratio
-
-
 class DSIDataset(Dataset):
     def __init__(self, conf: dict, corpus: DataFrame, queries: DataFrame, split: DataFrame, is_val: bool = False):
         super().__init__()
@@ -177,39 +19,52 @@ class DSIDataset(Dataset):
         self.queries = queries
         self.is_val = is_val
 
-        self.tokenizer = T5Tokenizer.from_pretrained(conf["MODEL_GENERATIVE"])
-        self.tokenizer.add_tokens(list(NEW_TOKENS_DICT.values()))
+        if self.is_val:
+            self.data_len = len(self.split)
+        else:
+            self.data_len = len(self.split) * conf["INDEXING_RETRIEVAL_RATIO"]
 
     def __len__(self) -> int:
-        return len(self.split)
+        return self.data_len
 
     def __getitem__(self, index):
-        # Get query and document
-        row = self.split[index].to_dicts()[0]
-        query = self.queries.filter(pl.col("_id") == pl.lit(row["query-id"]))["text"].item()
-        document = self.corpus.filter(pl.col("_id") == pl.lit(row["corpus-id"]))
+        if index >= len(self.split):
+            # =================================================
+            # Craft training/validation sample for indexing
+            # =================================================
 
-        # logger.debug(document)
+            # Get query and document
+            row = self.corpus[index % len(self.corpus)].to_dicts()[0]
+            seq_encode, attn_mask_encode = row["tok_ids_text"], row["attn_mask_text"]
+            seq_decode, attn_mask_decode = row["tok_ids_semantic_id"], row["attn_mask_semantic_id"]
 
-        doc_semantic_id = document["semantic_id"].item().to_list()
-        doc_raw = document["text"].item()
+            # logger.debug(document)
 
-        if not self.is_val:
-            seq_encode, attn_mask_encode, seq_decode, attn_mask_decode = (
-                _build_sample(self.tokenizer, "indexing", NEW_TOKENS_DICT, doc_raw, doc_semantic_id)
-                if _is_index_task()
-                else _build_sample(self.tokenizer, "retrieval", NEW_TOKENS_DICT, query, doc_semantic_id)
-            )
+            seq_encode_idx, seq_decode_idx = str(row["_id"]), str(row["_id"])
+            task = "indexing"
         else:
-            seq_encode, attn_mask_encode, seq_decode, attn_mask_decode = _build_sample(
-                self.tokenizer, "retrieval", NEW_TOKENS_DICT, query, doc_semantic_id
-            )
+            # =================================================
+            # Craft training/validation sample for retrieval
+            # =================================================
+
+            # Get query and document
+            row = self.split[index].to_dicts()[0]
+            seq_encode, attn_mask_encode = row["tok_ids_text"], row["attn_mask_text"]
+            seq_decode, attn_mask_decode = row["tok_ids_semantic_id"], row["attn_mask_semantic_id"]
+
+            # logger.debug(document)
+
+            seq_encode_idx, seq_decode_idx = row["query-id"], str(row["corpus-id"])
+            task = "retrieval"
 
         return {
-            "seq_encode": torch.tensor(seq_encode, dtype=torch.int32),
-            "attn_mask_encode": torch.tensor(attn_mask_encode, dtype=torch.int32),
-            "seq_decode": torch.tensor(seq_decode, dtype=torch.int32),
-            "attn_mask_decode": torch.tensor(attn_mask_decode, dtype=torch.int32),
+            "task": task,
+            "seq_encode": torch.tensor(seq_encode, dtype=torch.long),
+            "attn_mask_encode": torch.tensor(attn_mask_encode, dtype=torch.long),
+            "seq_encode_idx": seq_encode_idx,
+            "seq_decode": torch.tensor(seq_decode, dtype=torch.long),
+            "attn_mask_decode": torch.tensor(attn_mask_decode, dtype=torch.long),
+            "seq_decode_idx": seq_decode_idx,
         }
 
 
