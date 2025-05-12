@@ -3,7 +3,7 @@ from lightning import LightningModule
 from loguru import logger
 from polars import DataFrame
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.lr_scheduler import CosineAnnealingLR, _LRScheduler
 from torch.utils.data import Dataset
 from transformers import T5ForConditionalGeneration
 
@@ -123,12 +123,6 @@ class DSIModel(LightningModule):
 
         return loss
 
-    def on_train_batch_end(self, outputs, batch, batch_idx):
-        super().on_train_batch_end(outputs, batch, batch_idx)
-
-        sch = self.lr_schedulers()
-        sch.step()
-
     def validation_step(self, batch, batch_id):
         outputs = self.model.generate(batch["seq_encode"])
 
@@ -145,13 +139,13 @@ class DSIModel(LightningModule):
         pass
 
     def configure_optimizers(self):
-        optimizer = AdamW(self.parameters(), lr=float(self.conf["LR"]))
+        lr = float(self.conf["LR"])
+
+        optimizer = AdamW(self.parameters(), lr=lr)
 
         out = {"optimizer": optimizer}
 
         if self.conf["USE_LR_SCHEDULER"]:
-            out["lr_scheduler"] = LinearDecayWithWarmup(
-                optimizer, float(self.conf["LR"]), self.conf["N_STEPS_WARMUP"], self.conf["MAX_STEPS"]
-            )
+            out["lr_scheduler"] = CosineAnnealingLR(optimizer, self.conf["MAX_EPOCHS"], eta_min=lr * 0.1)
 
         return out

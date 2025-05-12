@@ -98,8 +98,8 @@ def main():
         devices=1,
         log_every_n_steps=1,
         # num_sanity_val_steps=2,
-        # max_epochs=conf["MAX_EPOCHS"],
-        max_steps=conf["MAX_STEPS"],
+        max_epochs=conf["MAX_EPOCHS"],
+        # max_steps=conf["MAX_STEPS"],
         callbacks=[
             # RichProgressBar(leave=True),
             LearningRateMonitor(logging_interval="step"),
