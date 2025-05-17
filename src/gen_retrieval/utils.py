@@ -96,7 +96,6 @@ class DSIModel(LightningModule):
         super().__init__()
 
         self.save_hyperparameters()
-        self.automatic_optimization = False
 
         self.conf = conf
 

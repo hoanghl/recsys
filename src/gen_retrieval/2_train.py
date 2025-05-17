@@ -7,7 +7,7 @@ import polars as pl
 import yaml
 from lightning import Trainer
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 from loguru import logger
 from torch.utils.data import DataLoader
 
@@ -90,12 +90,26 @@ def main():
     # =================================================
     version = datetime.now().strftime("%m-%d_%H-%M-%S")
     path_ckpt = Path(conf["PATHS"]["ckpt_dir"])
+    match conf["LOGGER"]:
+        case "wandb":
+            logger = WandbLogger(
+                name=version,
+                save_dir=conf["PATHS"]["logs"],
+                project=conf["PROJECT_NAME"],
+            )
+        case "tensorboard":
+            logger = TensorBoardLogger(
+                conf["PATHS"]["logs"],
+                name=conf["PROJECT_NAME"],
+                version=version,
+                default_hp_metric=False,
+            )
 
     lit_model = DSIModel(conf)
     trainer = Trainer(
         # precision=32,
         # accelerator="cpu",
-        devices=1,
+        devices=2,
         log_every_n_steps=1,
         # num_sanity_val_steps=2,
         max_epochs=conf["MAX_EPOCHS"],
@@ -110,26 +124,14 @@ def main():
                 save_on_train_epoch_end=True,
             ),
         ],
-        logger=[
-            TensorBoardLogger(
-                conf["PATHS"]["logs"],
-                name=conf["PROJECT_NAME"],
-                version=version,
-                default_hp_metric=False,
-            ),
-            # WandbLogger(
-            #     name=version,
-            #     save_dir=conf["PATHS"]["logs"],
-            #     project=conf["PROJECT_NAME"],
-            # )
-        ],
+        logger=[logger],
         # check_val_every_n_epoch=4,
     )
 
     # =================================================
     # Train
     # =================================================
-    trainer.fit(lit_model, loader_train)
+    trainer.fit(lit_model, loader_train, ckpt_path="ckpt/DSI/ckpt_epoch=0.ckpt")
     # trainer.validate(lit_model, loader_val)
 
 
