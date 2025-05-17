@@ -1,4 +1,6 @@
 PROJECT_NAME: DSI
+TAG: t5-small
+CKPT: null
 
 MAX_EPOCHS: 20
 BSZ: 60
@@ -31,7 +33,7 @@ PROCESSED:
   semantic_docid: data/processed/gen_retrieval/semantic_ids.pkl
 
 MODEL_DOCID: res/bert-base-cased
-MODEL_GENERATIVE: res/t5-large
+MODEL_GENERATIVE: res/t5-small
 
 NEW_TOKENS_DICT:
   task_indexing_tok: <IDX>

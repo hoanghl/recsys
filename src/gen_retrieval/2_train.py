@@ -88,17 +88,17 @@ def main():
     # =================================================
     # Define model
     # =================================================
-    version = datetime.now().strftime("%m-%d_%H-%M-%S")
+    version = f"{conf['TAG']}_{datetime.now().strftime(r'%m-%d_%H-%M-%S')}"
     path_ckpt = Path(conf["PATHS"]["ckpt_dir"])
     match conf["LOGGER"]:
         case "wandb":
-            logger = WandbLogger(
+            logger_train = WandbLogger(
                 name=version,
                 save_dir=conf["PATHS"]["logs"],
                 project=conf["PROJECT_NAME"],
             )
         case "tensorboard":
-            logger = TensorBoardLogger(
+            logger_train = TensorBoardLogger(
                 conf["PATHS"]["logs"],
                 name=conf["PROJECT_NAME"],
                 version=version,
@@ -109,29 +109,28 @@ def main():
     trainer = Trainer(
         # precision=32,
         # accelerator="cpu",
-        devices=2,
+        devices=-1,
         log_every_n_steps=1,
         # num_sanity_val_steps=2,
         max_epochs=conf["MAX_EPOCHS"],
         # max_steps=conf["MAX_STEPS"],
         callbacks=[
-            # RichProgressBar(leave=True),
             LearningRateMonitor(logging_interval="step"),
             ModelCheckpoint(
-                dirpath=path_ckpt / conf["PROJECT_NAME"],
+                dirpath=path_ckpt / conf["PROJECT_NAME"] / conf["TAG"],
                 filename=f"{path_ckpt.stem}_{{epoch}}",
                 every_n_epochs=1,
                 save_on_train_epoch_end=True,
             ),
         ],
-        logger=[logger],
+        logger=[logger_train],
         # check_val_every_n_epoch=4,
     )
 
     # =================================================
     # Train
     # =================================================
-    trainer.fit(lit_model, loader_train, ckpt_path="ckpt/DSI/ckpt_epoch=0.ckpt")
+    trainer.fit(lit_model, loader_train, ckpt_path=conf["CKPT"])
     # trainer.validate(lit_model, loader_val)
 
 
