@@ -204,3 +204,4 @@ logs/
 data/
 experiments/
 res/
+.vscode/
