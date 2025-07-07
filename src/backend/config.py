@@ -15,15 +15,6 @@ HOST = os.getenv("DB_HOST")
 
 TABLE_ITEMS = os.getenv("TABLE_ITEMS", "items")
 
-DIR_STATIC = ""
-match FASTAPI_ENV:
-    case "development":
-        DIR_STATIC = "src/frontend/dist/assets"
-    case "production":
-        DIR_STATIC = "/build/dist"
-    case _:
-        raise NotImplementedError("Unknown env configuration")
-
 
 MODEL_NAME = os.getenv("MODEL_NAME", "openai/clip-vit-base-patch32")
 PATH_MODEL: str = os.getenv("PATH_MODEL")
@@ -36,3 +27,8 @@ match dtype:
         DTYPE = torch.bfloat16
     case _:
         raise NotImplementedError()
+
+# =================================================
+# Configs for embedding store
+# =================================================
+COLLECTION_NAME = os.getenv("COLLECTION_NAME")
