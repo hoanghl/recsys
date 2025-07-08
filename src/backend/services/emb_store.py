@@ -28,8 +28,8 @@ class EmbdStoreUtils:
     def _initialize(self) -> Collection:
         # Connect to embedding store
         try:
-            connections.connect("default", host="localhost", port="19530")
-            print("Connected to Milvus.")
+            connections.connect("default", host=config.EMBDSTORE_HOST, port=config.EMBDSTORE_PORT)
+            logger.info("Connected to Milvus.")
         except Exception as e:
             logger.error(f"Failed to connect to Milvus embedding store: {e}")
 
@@ -43,14 +43,14 @@ class EmbdStoreUtils:
         ]
 
         schema = CollectionSchema(fields)
-        collection = Collection(config.COLLECTION_NAME, schema, consistency_level="Strong")
+        collection = Collection(config.EMBDSTORE_COLL_NAME, schema, consistency_level="Strong")
         return collection
 
     def drop_collection(self):
-        utility.drop_collection(config.COLLECTION_NAME)
-        logger.info(f"Dropped collection '{config.COLLECTION_NAME}'.")
+        utility.drop_collection(config.EMBDSTORE_COLL_NAME)
+        logger.info(f"Dropped collection '{config.EMBDSTORE_COLL_NAME}'.")
 
-    def insert_data(self, entities):
+    def insert_data(self, entities: list):
         insert_result = self.collection.insert(entities)
         self.collection.flush()
         logger.info(f"Inserted data into '{self.collection.name}'. Number of entities: {self.collection.num_entities}")
@@ -63,16 +63,17 @@ class EmbdStoreUtils:
 
         logger.info(f"Index '{self.index_type}' created for field '{self.fieldname_embd}'.")
 
-    def search(self, query: ndarray | List[ndarray], limit: int, metric: str = "COSINE"):
+    def search(self, query: ndarray | List[ndarray], limit: int):
         if isinstance(query, ndarray):
             query = [query]
 
+        self.collection.load()
         result = self.collection.search(
             query,
             self.fieldname_embd,
-            {"metric_type": metric, "params": {"nprobe": 10}},
+            {"metric_type": self.metric_type, "params": {"nprobe": 10}},
             limit=limit,
-            output_fields=["source"],
+            output_fields=[self.fieldname_path],
         )
 
         return result

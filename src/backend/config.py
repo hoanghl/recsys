@@ -31,4 +31,6 @@ match dtype:
 # =================================================
 # Configs for embedding store
 # =================================================
-COLLECTION_NAME = os.getenv("COLLECTION_NAME")
+EMBDSTORE_COLL_NAME = os.getenv("EMBDSTORE_COLL_NAME")
+EMBDSTORE_HOST = os.getenv("EMBDSTORE_HOST")
+EMBDSTORE_PORT = os.getenv("EMBDSTORE_PORT")
