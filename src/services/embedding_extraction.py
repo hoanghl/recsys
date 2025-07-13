@@ -7,7 +7,7 @@ from PIL import Image
 from torch import Tensor
 from transformers import CLIPProcessor, CLIPTokenizerFast
 
-from src.backend import config
+from src import config
 
 
 class EmbeddingExtraction:

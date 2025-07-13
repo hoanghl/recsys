@@ -1,0 +1,115 @@
+openapi: 3.1.0
+info:
+  version: 1.0.0
+  title: xButler webserver
+
+paths:
+  /resource/text:
+    get:
+      parameters:
+        - explode: true
+          in: query
+          name: text
+          required: true
+          schema:
+            title: Text
+            type: string
+          style: form
+        - explode: true
+          in: query
+          name: topk
+          required: false
+          schema:
+            default: 2
+            title: Topk
+            type: integer
+          style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/NearestItem"
+                type: array
+          description: Successful Response
+      summary: Get top k resources via query text
+      tags:
+        - Resource
+  /resource/image:
+    get:
+      parameters:
+        - explode: true
+          in: query
+          name: topk
+          required: false
+          schema:
+            default: 2
+            title: Topk
+            type: integer
+            format: int32
+            minimum: 0
+          style: form
+      requestBody:
+        content:
+          image/png:
+            schema:
+              format: binary
+              type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/NearestItem"
+                type: array
+          description: Successful Response
+      summary: Get top k similar resources via queried image
+      tags:
+        - Resource
+  /resource:
+    post:
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/Body_upload_item_api_resource_put"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+          description: Validation Error
+      summary: Upload item
+      tags:
+        - Resource
+components:
+  schemas:
+    Body_upload_item_api_resource_put:
+      properties:
+        file:
+          format: binary
+          title: File
+          type: string
+      required:
+        - file
+      title: Body_upload_item_api_resource_put
+    HTTPError: {}
+    NearestItem:
+      example:
+        item_id: 0
+      properties:
+        item_id:
+          title: Item Id
+          type: integer
+      required:
+        - item_id
+      title: NearestItem

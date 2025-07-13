@@ -2,7 +2,7 @@ import psycopg as pg
 from loguru import logger
 from psycopg.rows import dict_row
 
-from src.backend import config
+from src import config
 
 
 def db_connect(func):

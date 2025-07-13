@@ -1,13 +1,51 @@
 services:
-  db:
-    image: pgvector/pgvector:pg17
-    container_name: database
-    ports:
-      - ${DB_PORT}:5432
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  # db:
+  #   image: pgvector/pgvector:pg17
+  #   container_name: database
+  #   ports:
+  #     - ${DB_PORT}:5432
+  #   volumes:
+  #     - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  #   environment:
+  #     - POSTGRES_PASSWORD=${DB_PWD}
+  #     - POSTGRES_USER=${DB_USER}
+  #     - POSTGRES_DB=${DB_NAME}
+  #     - PGTZ=Europe/Helsinki
+  embedding-store:
+    container_name: embedding-store
+    image: milvusdb/milvus:v2.5.14
     environment:
-      - POSTGRES_PASSWORD=${DB_PWD}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_DB=${DB_NAME}
-      - PGTZ=Europe/Helsinki
+      - ETCD_USE_EMBED=true
+      - ETCD_DATA_DIR=/var/lib/milvus/etcd
+      - ETCD_CONFIG_PATH=/milvus/configs/embedEtcd.yaml
+      - COMMON_STORAGETYPE=local
+    security_opt:
+      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 90s
+    ports:
+      - 19530:19530
+      - 9091:9091
+      - 2379:2379
+    volumes:
+      - ${EMBDSTORE_STORAGE}:/var/lib/milvus
+      - ./embedEtcd.yaml:/milvus/configs/embedEtcd.yaml
+    entrypoint: ["milvus", "run", "standalone"]
+    # entrypoint: ["tail", "-f", "/dev/null"]
+  object-store:
+    container_name: object-store
+    image: quay.io/minio/minio
+    ports:
+      - ${OBJSTORE_PORT}:9000
+      - 9001:9001
+    environment:
+      MINIO_ROOT_USER: ${OBJSTORE_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${OBJSTORE_ROOT_PWD}
+      MINIO_SERVER_URL: http://127.0.0.1:9000
+    volumes:
+      - ${OBJSTORE_STORAGE}:/data
+    command: server /data --console-address ":9001"
