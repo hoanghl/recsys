@@ -23,6 +23,8 @@ paths:
             default: 2
             title: Topk
             type: integer
+            format: int32
+            minimum: 0
           style: form
       responses:
         "200":

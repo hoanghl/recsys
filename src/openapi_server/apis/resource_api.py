@@ -23,7 +23,7 @@ from fastapi import (  # noqa: F401
 )
 
 from openapi_server.models.extra_models import TokenModel  # noqa: F401
-from pydantic import Field, StrictBytes, StrictInt, StrictStr
+from pydantic import Field, StrictBytes, StrictStr
 from typing import Any, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 from openapi_server.models.nearest_item import NearestItem
@@ -46,7 +46,7 @@ for _, name, _ in pkgutil.iter_modules(ns_pkg.__path__, ns_pkg.__name__ + "."):
     response_model_by_alias=True,
 )
 async def resource_image_get(
-    topk: Optional[Annotated[int, Field(strict=True, ge=0)]] = Query(2, description="", alias="topk", ge=0),
+    topk: Optional[Annotated[int, Field(strict=False, ge=0)]] = Query(2, description="", alias="topk", ge=0),
     body: Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]] = Body(None, description=""),
 ) -> List[NearestItem]:
     if not BaseResourceApi.subclasses:
@@ -83,7 +83,7 @@ async def resource_post(
 )
 async def resource_text_get(
     text: StrictStr = Query(None, description="", alias="text"),
-    topk: Optional[StrictInt] = Query(2, description="", alias="topk"),
+    topk: Optional[Annotated[int, Field(strict=False, ge=0)]] = Query(2, description="", alias="topk", ge=0),
 ) -> List[NearestItem]:
     if not BaseResourceApi.subclasses:
         raise HTTPException(status_code=500, detail="Not implemented")

@@ -1,10 +1,10 @@
 # coding: utf-8
 
-from typing import ClassVar, Dict, List, Tuple  # noqa: F401
+from typing import ClassVar, Dict, List, Optional, Tuple, Union  # noqa: F401
 
-from pydantic import Field, StrictBytes, StrictInt, StrictStr
-from typing import Any, List, Optional, Tuple, Union
+from pydantic import Field, StrictBytes, StrictStr
 from typing_extensions import Annotated
+
 from openapi_server.models.nearest_item import NearestItem
 
 
@@ -16,7 +16,7 @@ class BaseResourceApi:
         BaseResourceApi.subclasses = BaseResourceApi.subclasses + (cls,)
     async def resource_image_get(
         self,
-        topk: Optional[Annotated[int, Field(strict=True, ge=0)]],
+        topk: Optional[Annotated[int, Field(strict=False, ge=0)]],
         body: Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]],
     ) -> List[NearestItem]:
         ...
@@ -32,6 +32,6 @@ class BaseResourceApi:
     async def resource_text_get(
         self,
         text: StrictStr,
-        topk: Optional[StrictInt],
+        topk: Optional[Annotated[int, Field(strict=False, ge=0)]],
     ) -> List[NearestItem]:
         ...
