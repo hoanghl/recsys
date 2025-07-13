@@ -29,7 +29,6 @@ requirements.txt
 setup.cfg
 .flake8
 .gitignore
-tests
+tests/
 README.md
 pyproject.toml
-.openapi-generator

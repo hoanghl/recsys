@@ -21,12 +21,12 @@ from fastapi import (  # noqa: F401
     Security,
     status,
 )
+from fastapi.responses import FileResponse
 
 from openapi_server.models.extra_models import TokenModel  # noqa: F401
 from pydantic import Field, StrictBytes, StrictStr
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Tuple, Union
 from typing_extensions import Annotated
-from openapi_server.models.nearest_item import NearestItem
 
 
 router = APIRouter()
@@ -34,24 +34,6 @@ router = APIRouter()
 ns_pkg = openapi_server.impl
 for _, name, _ in pkgutil.iter_modules(ns_pkg.__path__, ns_pkg.__name__ + "."):
     importlib.import_module(name)
-
-
-@router.get(
-    "/resource/image",
-    responses={
-        200: {"model": List[NearestItem], "description": "Successful Response"},
-    },
-    tags=["Resource"],
-    summary="Get top k similar resources via queried image",
-    response_model_by_alias=True,
-)
-async def resource_image_get(
-    topk: Optional[Annotated[int, Field(strict=False, ge=0)]] = Query(2, description="", alias="topk", ge=0),
-    body: Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]] = Body(None, description=""),
-) -> List[NearestItem]:
-    if not BaseResourceApi.subclasses:
-        raise HTTPException(status_code=500, detail="Not implemented")
-    return await BaseResourceApi.subclasses[0]().resource_image_get(topk, body)
 
 
 @router.post(
@@ -73,18 +55,18 @@ async def resource_post(
 
 
 @router.get(
-    "/resource/text",
+    "/resource/{resourceId}",
     responses={
-        200: {"model": List[NearestItem], "description": "Successful Response"},
+        200: {"model": object, "description": "Successful Response"},
+        422: {"model": object, "description": "Validation Error"},
     },
     tags=["Resource"],
-    summary="Get top k resources via query text",
-    response_model_by_alias=True,
+    summary="Get resource via ID",
+    response_model=None
 )
-async def resource_text_get(
-    text: StrictStr = Query(None, description="", alias="text"),
-    topk: Optional[Annotated[int, Field(strict=False, ge=0)]] = Query(2, description="", alias="topk", ge=0),
-) -> List[NearestItem]:
+async def resource_resource_id_get(
+    resourceId: Annotated[StrictStr, Field(description="Resource ID")] = Path(..., description="Resource ID"),
+) -> FileResponse:
     if not BaseResourceApi.subclasses:
         raise HTTPException(status_code=500, detail="Not implemented")
-    return await BaseResourceApi.subclasses[0]().resource_text_get(text, topk)
+    return await BaseResourceApi.subclasses[0]().resource_resource_id_get(resourceId)

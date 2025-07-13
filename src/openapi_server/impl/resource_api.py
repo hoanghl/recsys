@@ -1,15 +1,9 @@
-from loguru import logger
-
 from openapi_server.apis.resource_api_base import BaseResourceApi
-from openapi_server.models.nearest_item import NearestItem
 
 
 class ResourceAPI(BaseResourceApi):
-    async def resource_text_get(self, text, topk):
-        logger.info("Inside herererere")
+    async def resource_post(self, file):
+        return await super().resource_post(file)
 
-        return [
-            NearestItem(item_id=1),
-            NearestItem(item_id=2),
-            NearestItem(item_id=3),
-        ]
+    async def resource_resource_id_get(self, resourceId):
+        return await super().resource_resource_id_get(resourceId)

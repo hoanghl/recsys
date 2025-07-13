@@ -1,10 +1,11 @@
 openapi: 3.1.0
 info:
-  version: 1.0.0
+  version: 1.1.0
   title: xButler webserver
+  description: Web server for ML services of xButler
 
 paths:
-  /resource/text:
+  /retrieval/text:
     get:
       parameters:
         - explode: true
@@ -37,9 +38,9 @@ paths:
           description: Successful Response
       summary: Get top k resources via query text
       tags:
-        - Resource
-  /resource/image:
-    get:
+        - Retrieval
+  /retrieval/image:
+    post:
       parameters:
         - explode: true
           in: query
@@ -69,7 +70,45 @@ paths:
           description: Successful Response
       summary: Get top k similar resources via queried image
       tags:
+        - Retrieval
+  /resource/{resourceId}:
+    get:
+      parameters:
+        - explode: false
+          in: path
+          name: resourceId
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        "200":
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+          description: Validation Error
+      summary: Get resource via ID
+      tags:
         - Resource
+
   /resource:
     post:
       requestBody:
