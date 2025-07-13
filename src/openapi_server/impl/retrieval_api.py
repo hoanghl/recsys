@@ -1,18 +1,22 @@
-from loguru import logger
-
 from openapi_server.apis.retrieval_api_base import BaseRetrievalApi
 from openapi_server.models.nearest_item import NearestItem
+from services import db
+from services.embedding_extraction import EmbeddingExtraction
 
 
 class RetrievalAPI(BaseRetrievalApi):
+    def __init__(self):
+        super().__init__()
+
+        self.embd_extractor = EmbeddingExtraction()
+
     async def retrieval_image_post(self, topk, body):
         return await super().retrieval_image_post(topk, body)
 
     async def retrieval_text_get(self, text, topk):
-        logger.info("Inside herererere")
+        text_embd = self.embd_extractor.get_embd_text(text)[0].tolist()
+        fetched = db.fetch_similar_items(text_embd=str(text_embd), topk=topk)
 
-        return [
-            NearestItem(item_id=1),
-            NearestItem(item_id=2),
-            NearestItem(item_id=3),
-        ]
+        ret = [NearestItem(item_id=entry["id"]) for entry in fetched]
+
+        return ret
