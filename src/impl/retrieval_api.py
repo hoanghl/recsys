@@ -1,7 +1,7 @@
-from openapi_server.apis.retrieval_api_base import BaseRetrievalApi
-from openapi_server.models.nearest_item import NearestItem
-from services import db
-from services.embedding_extraction import EmbeddingExtraction
+from src.apis.retrieval_api_base import BaseRetrievalApi
+from src.models.nearest_item import NearestItem
+from src.services import db
+from src.services.embedding_extraction import EmbeddingExtraction
 
 
 class RetrievalAPI(BaseRetrievalApi):

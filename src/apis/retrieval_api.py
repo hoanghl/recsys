@@ -4,8 +4,8 @@ from typing import Dict, List  # noqa: F401
 import importlib
 import pkgutil
 
-from openapi_server.apis.retrieval_api_base import BaseRetrievalApi
-import openapi_server.impl
+from .retrieval_api_base import BaseRetrievalApi
+from src import impl
 
 from fastapi import (  # noqa: F401
     APIRouter,
@@ -23,16 +23,15 @@ from fastapi import (  # noqa: F401
 )
 from loguru import logger
 
-from openapi_server.models.extra_models import TokenModel  # noqa: F401
 from pydantic import Field, StrictBytes, StrictStr
 from typing import List, Optional, Tuple, Union
 from typing_extensions import Annotated
-from openapi_server.models.nearest_item import NearestItem
+from src.models.nearest_item import NearestItem
 
 
 router = APIRouter()
 
-ns_pkg = openapi_server.impl
+ns_pkg = impl
 for _, name, _ in pkgutil.iter_modules(ns_pkg.__path__, ns_pkg.__name__ + "."):
     importlib.import_module(name)
 

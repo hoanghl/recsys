@@ -1,4 +1,4 @@
-from openapi_server.apis.resource_api_base import BaseResourceApi
+from src.apis.resource_api_base import BaseResourceApi
 
 
 class ResourceAPI(BaseResourceApi):
