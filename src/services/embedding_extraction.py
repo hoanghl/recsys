@@ -3,6 +3,7 @@ from io import BytesIO
 
 import torch
 from loguru import logger
+from numpy import ndarray
 from PIL import Image
 from torch import Tensor
 from transformers import CLIPProcessor, CLIPTokenizerFast
@@ -35,18 +36,24 @@ class EmbeddingExtraction:
 
         return embd
 
-    def get_embd_image(self, image_bytes: BytesIO) -> Tensor:
+    def get_embd_image(self, image_bytes: BytesIO) -> ndarray:
         """Extract embedding from input image
 
         Args:
             image_bytes (BytesIO): input image (already read into memory)
 
         Returns:
-            Tensor: embedding vector
+            ndarray: embedding vector
         """
 
         image = Image.open(image_bytes)
         out_sample_image = self.processor(images=image, return_tensors="pt")
-        embd = self.loaded_model.get_image_features(out_sample_image["pixel_values"].to("mps")).to("cpu").detach()
+        embd = (
+            self.loaded_model.get_image_features(out_sample_image["pixel_values"].to("mps"))
+            .to("cpu")
+            .detach()
+            .numpy()
+            .squeeze()
+        )
 
         return embd

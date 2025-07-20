@@ -1,40 +1,29 @@
 from io import BytesIO
-
-from loguru import logger
-from minio import Minio
+from pathlib import Path
 
 from src import config
 
 
 class ObjStoreUtils:
-    def __init__(self, bucket_name: str = "objects"):
-        self.bucket_name = bucket_name
+    def __init__(self):
+        self.path_dir = Path(config.FILESTORE_DIR)
 
-        self.client = Minio(
-            endpoint=f"{config.OBJSTORE_HOST}:{config.OBJSTORE_PORT}",
-            access_key=config.OBJSTORE_ROOT_USER,
-            secret_key=config.OBJSTORE_ROOT_PWD,
-            secure=False,
-        )
+    def _get_path(self, filename: str) -> Path:
+        name = Path(filename)
+        path = self.path_dir / name.suffix[1:] / name
 
-        # Create bucket if not existed
-        found = self.client.bucket_exists(bucket_name)
-        if not found:
-            self.client.make_bucket(bucket_name)
-            logger.info("Created bucket: ", bucket_name)
+        path.parent.mkdir(exist_ok=True, parents=True)
 
-    def upload(self, obj_name: str, data: BytesIO, size: int):
-        self.client.put_object(self.bucket_name, obj_name, data, size)
+        return path
 
-        logger.info(f"Put object '{obj_name}' to bucket '{self.bucket_name}'")
+    def save(self, filename: str, data: BytesIO):
+        path = self._get_path(filename)
 
-    def get(self, obj_name: str) -> bytes | None:
-        response = None
-        try:
-            response = self.client.get_object(self.bucket_name, obj_name)
-        finally:
-            if response is not None:
-                response.close()
-                response.release_conn()
+        with open(path, "wb+") as file:
+            file.write(data)
 
-                return response.data
+    def load(self, filename: str) -> bytes:
+        path = self._get_path(filename)
+
+        with open(path, "rb") as file:
+            return file.read()

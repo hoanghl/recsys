@@ -9,6 +9,7 @@ load_dotenv()
 # Configs for web server
 # =================================================
 FASTAPI_ENV = os.getenv("FASTAPI_ENV", "development")
+API_VERSION = os.getenv("VERSION")
 
 PORT = os.getenv("DB_PORT")
 PWD = os.getenv("DB_PWD")
@@ -46,7 +47,4 @@ EMBDSTORE_PORT = os.getenv("EMBDSTORE_PORT")
 # =================================================
 # Configs for object store
 # =================================================
-OBJSTORE_HOST = os.getenv("OBJSTORE_HOST")
-OBJSTORE_PORT = os.getenv("OBJSTORE_PORT")
-OBJSTORE_ROOT_USER = os.getenv("OBJSTORE_ROOT_USER")
-OBJSTORE_ROOT_PWD = os.getenv("OBJSTORE_ROOT_PWD")
+FILESTORE_DIR = os.getenv("FILESTORE_DIR")

@@ -12,13 +12,11 @@ class EmbdStoreUtils:
     def __init__(
         self,
         fieldname_id: str = "id",
-        fieldname_path: str = "path",
         fieldname_embd: str = "embd",
         index_type: str = "IVF_FLAT",
         metric_type: str = "COSINE",
     ):
         self.fieldname_id = fieldname_id
-        self.fieldname_path = fieldname_path
         self.fieldname_embd = fieldname_embd
         self.index_type = index_type
         self.metric_type = metric_type
@@ -38,13 +36,14 @@ class EmbdStoreUtils:
         # Create collection
         fields = [
             FieldSchema(name=self.fieldname_id, dtype=DataType.INT64, is_primary=True, auto_id=True),
-            FieldSchema(name=self.fieldname_path, dtype=DataType.VARCHAR, max_length=256),
             FieldSchema(name=self.fieldname_embd, dtype=DataType.FLOAT16_VECTOR, dim=512),
         ]
 
         schema = CollectionSchema(fields)
         collection = Collection(config.EMBDSTORE_COLL_NAME, schema, consistency_level="Strong")
         return collection
+    
+    # def create_collection(self):
 
     def drop_collection(self):
         utility.drop_collection(config.EMBDSTORE_COLL_NAME)
